@@ -1,0 +1,39 @@
+DEV NOTE:
+
+	Publishing: the pre-baked indexing of the currently appropriate articles and is to be renew every 1 hour.
+	User: require to create an account if they choose to like a comment.
+	Like: each user's like creates a new record.
+	Follow: each user's follow creates a new record.
+	Article: each article needs a unique URL which will be used for identifying and updating.
+
+
+
+Server creating articles and publishing process:
+	BACK-END
+		Every 45 minutes, the server will scrape the web to compile information which is needed for authoring new articles and updating current articles.
+		Every 30 minutes, the server will compile a new edition of publishing record by searching the most current articles.
+
+	FRONT-END
+		GET-CONTENT, send a time request to the server which returns with the latest Publishing object.
+		GET-OLD-CONTENT, send a time request to the server which returns with the time sensitive Publishing object.
+
+Scrolling down page:
+	It will request the previous 24 hour interval of events, if user keeps scrolling down, the next previous 24 hour interval after the prevoius interval of the news will be represented and so on.
+
+Middleware:
+	Purpose: Use for likes and follow procedures.
+	A like or follow request'll go through a middleware. If no token is presented or fail to meet the criteria, user will be redirected to a login and sign up request, else if the request passes the verification process, allow the request to arrive the expected end point.
+	
+
+
+
+######################################################################################################################################################
+######################################################################################################################################################
+TODO
+
+WEEKLY NEWS LETTER:
+Most like article and comments by our readers and by publishers.
+
+
+USEFUL COMMANDS:
+export NODE_ENV=development

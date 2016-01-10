@@ -1,0 +1,872 @@
+BASIC
+
+var promise = new Promise(function(resolve, reject) {
+  // do a thing, possibly async, then…
+
+  if (/* everything turned out fine */) {
+    resolve("Stuff worked!");
+  }
+  else {
+    reject(Error("It broke"));
+  }
+});
+
+promise.then(function(result) {
+  console.log(result); // "Stuff worked!"
+}, function(err) {
+  console.log(err); // Error: "It broke"
+});
+
+function get(url) {
+  // Return a new promise.
+  return new Promise(function(resolve, reject) {
+    // Do the usual XHR stuff
+    var req = new XMLHttpRequest();
+    req.open('GET', url);
+
+    req.onload = function() {
+      // This is called even on 404 etc
+      // so check the status
+      if (req.status == 200) {
+        // Resolve the promise with the response text
+        resolve(req.response);
+      }
+      else {
+        // Otherwise reject with the status text
+        // which will hopefully be a meaningful error
+        reject(Error(req.statusText));
+      }
+    };
+
+    // Handle network errors
+    req.onerror = function() {
+      reject(Error("Network Error"));
+    };
+
+    // Make the request
+    req.send();
+  });
+}
+Now let's use it:
+
+get('story.json').then(function(response) {
+  console.log("Success!", response);
+}, function(error) {
+  console.error("Failed!", error);
+});
+
+var promise = new Promise(function(resolve, reject) {
+  resolve(1);
+});
+
+promise.then(function(val) {
+  console.log(val); // 1
+  return val + 2;
+}).then(function(val) {
+  console.log(val); // 3
+});
+As a practical example, let's go back to:
+
+get('story.json').then(function(response) {
+  console.log("Success!", response);
+});
+
+
+image elements had a "ready" method that returned a promise, we could do
+img1.ready().then(function() {
+  // loaded
+}, function() {
+  // failed
+});
+
+// and…
+Promise.all([img1.ready(), img2.ready()]).then(function() {
+  // all loaded
+}, function() {
+  // one or more failed
+});
+
+BASIC SEQUECE
+
+// Start off with a promise that always resolves
+var sequence = Promise.resolve();
+
+// Loop through our chapter urls
+story.chapterUrls.forEach(function(chapterUrl) {
+  // Add these actions to the end of the sequence
+  sequence = sequence.then(function() {
+    return getJSON(chapterUrl);
+  }).then(function(chapter) {
+    addHtmlToPage(chapter.html);
+  });
+});
+
+slow
+
+Thinking async isn't easy. If you're struggling to get off the mark, try writing the code as if it were synchronous. In this case:
+
+try {
+  var story = getJSONSync('story.json');
+  addHtmlToPage(story.heading);
+
+  story.chapterUrls.forEach(function(chapterUrl) {
+    var chapter = getJSONSync(chapterUrl);
+    addHtmlToPage(chapter.html);
+  });
+
+  addTextToPage("All done");
+}
+catch (err) {
+  addTextToPage("Argh, broken: " + err.message);
+}
+document.querySelector('.spinner').style.display = 'none';
+
+slow
+getJSON('story.json').then(function(story) {
+  addHtmlToPage(story.heading);
+
+  // TODO: for each url in story.chapterUrls, fetch & display
+}).then(function() {
+  // And we're all done!
+  addTextToPage("All done");
+}).catch(function(err) {
+  // Catch any error that happened along the way
+  addTextToPage("Argh, broken: " + err.message);
+}).then(function() {
+  // Always hide the spinner
+  document.querySelector('.spinner').style.display = 'none';
+});
+
+fast
+getJSON('story.json').then(function(story) {
+  addHtmlToPage(story.heading);
+
+  return story.chapterUrls.reduce(function(sequence, chapterUrl) {
+    // Once the last chapter's promise is done…
+    return sequence.then(function() {
+      // …fetch the next chapter
+      return getJSON(chapterUrl);
+    }).then(function(chapter) {
+      // and add it to the page
+      addHtmlToPage(chapter.html);
+    });
+  }, Promise.resolve());
+}).then(function() {
+  // And we're all done!
+  addTextToPage("All done");
+}).catch(function(err) {
+  // Catch any error that happened along the way
+  addTextToPage("Argh, broken: " + err.message);
+}).then(function() {
+  // Always hide the spinner
+  document.querySelector('.spinner').style.display = 'none';
+});
+
+fast
+// Start off with a promise that always resolves
+var sequence = Promise.resolve();
+
+// Loop through our chapter urls
+story.chapterUrls.forEach(function(chapterUrl) {
+  // Add these actions to the end of the sequence
+  sequence = sequence.then(function() {
+    return getJSON(chapterUrl);
+  }).then(function(chapter) {
+    addHtmlToPage(chapter.html);
+  });
+});
+
+
+
+
+var fs = require('fs')
+var path = require('path')
+var Q = require('q')
+var fs_readdir = Q.denodeify(fs.readdir) // [1]
+var fs_stat = Q.denodeify(fs.stat)
+ 
+module.exports = function (dir) {
+  return fs_readdir(dir)
+    .then(function (files) {
+      var promises = files.map(function (file) {
+        return fs_stat(path.join(dir,file))
+      })
+      return Q.all(promises).then(function (stats) { // [2]
+        return [files, stats] // [3]
+      })
+    })
+    .then(function (data) { // [4]
+      var files = data[0]
+      var stats = data[1]
+      var largest = stats
+        .filter(function (stat) { return stat.isFile() })
+        .reduce(function (prev, next) {
+        if (prev.size > next.size) return prev
+          return next
+        })
+      return files[stats.indexOf(largest)]
+    })
+}
+
+PARALLEL
+
+1.
+We can do the exact same thing, but make sure the logging happens in the order of the elements in the array. In other words, this next example will do the asynchronous work in parallel, but the synchronous work will be sequential:
+
+
+function foo() {
+    return getValues().then(function(values) {
+        var operations = values.map(asyncOperation);
+        
+        return Promise.all(operations).then(function(newValues) {
+            newValues.forEach(function(newValue) {
+                console.log(newValue);
+            });
+  
+            return newValues;
+        });
+    }).catch(function(err) {
+        console.log('We had an ', err);
+    });
+}
+
+2.
+function async(arg, callback) {
+  console.log('do something with \''+arg+'\', return 1 sec later');
+  setTimeout(function() { callback(arg * 2); }, 1000);
+}
+function final() { console.log('Done', results); }
+
+var items = [ 1, 2, 3, 4, 5, 6 ];
+var results = [];
+
+items.forEach(function(item) {
+  async(item, function(result){
+    results.push(result);
+    if(results.length == items.length) {
+      final();
+    }
+  })
+});
+
+2.1 Full parallel
+
+function fullParallel(callbacks, last) {
+  var results = [];
+  var result_count = 0;
+  callbacks.forEach(function(callback, index) {
+    callback( function() {
+      results[index] = Array.prototype.slice.call(arguments);
+      result_count++;
+      if(result_count == callbacks.length) {
+        last(results);
+      }
+    });
+  });
+}
+// Example task
+function async(arg, callback) {
+  var delay = Math.floor(Math.random() * 5 + 1) * 100; // random ms
+  console.log('async with \''+arg+'\', return in '+delay+' ms');
+  setTimeout(function() { callback(arg * 2); }, delay);
+}
+function final(results) { console.log('Done', results); }
+
+fullParallel([
+  function(next) { async(1, next); },
+  function(next) { async(2, next); },
+  function(next) { async(3, next); },
+  function(next) { async(4, next); },
+  function(next) { async(5, next); },
+  function(next) { async(6, next); }
+], final);
+
+2.1.1 limited parallel
+
+function limited(limit, callbacks, last) {
+  var results = [];
+  var running = 1;
+  var task = 0;
+  function next(){
+    running--;
+    if(task == callbacks.length && running == 0) {
+      last(results);
+    }
+    while(running < limit && callbacks[task]) {
+      var callback = callbacks[task];
+      (function(index) {
+        callback(function() {
+          results[index] = Array.prototype.slice.call(arguments);
+          next();
+        });
+      })(task);
+      task++;
+      running++;
+    }
+  }
+  next();
+}
+// Example task
+function async(arg, callback) {
+  var delay = Math.floor(Math.random() * 5 + 1) * 1000; // random ms
+  console.log('async with \''+arg+'\', return in '+delay+' ms');
+  setTimeout(function() {
+    var result = arg * 2;
+    console.log('Return with \''+arg+'\', result '+result);
+    callback(result);
+  }, delay);
+}
+function final(results) { console.log('Done', results); }
+
+limited(3, [
+  function(next) { async(1, next); },
+  function(next) { async(2, next); },
+  function(next) { async(3, next); },
+  function(next) { async(4, next); },
+  function(next) { async(5, next); },
+  function(next) { async(6, next); }
+], final);
+
+3.
+function readUploadAndSave(file, url, otherPath) {
+    // read the file and transform it
+    return fs.readFile(file)
+        .then(service.transform)
+        .then(function(content) {
+            // create a promise that is done when both the upload
+            // and file write are done:
+            return Promise.join(
+                uploadData(url, content),
+                fs.writeFile(otherPath, content));
+        });
+}
+
+4.
+files.getLastTwoVersions(filename)
+    .then(function(items) {
+        // fetch versions in parallel
+        var v1 = versions.get(items.last),
+            v2 = versions.get(items.previous);
+        return [v1, v2];
+    })
+    .spread(function(v1, v2) {
+        // both of these are now complete.
+        return diffService.compare(v1.blob, v2.blob)
+    })
+    .then(function(diff) {
+        // voila, diff is ready. Do something with it.
+    });
+
+5.
+// download all items, then get their names
+var pNames = ids.map(function(id) {
+    return getItem(id).then(function(result) {
+        return result.name;
+    });
+});
+// wait for things to complete:
+Promise.all(pNames).then(function(names) {
+    // we now have all the names.
+});    
+
+
+6. Limited
+var queued = [], parallel = 3;
+var namePromises = ids.map(function(id) {
+    // How many items must download before fetching the next?
+    // The queued, minus those running in parallel, plus one of
+    // the parallel slots.
+    var mustComplete = Math.max(0, queued.length - parallel + 1);
+    // when enough items are complete, queue another request for an item
+    return Promise.some(queued, mustComplete)
+        .then(function() {
+            var download = getItem(id);
+            queued.push(download);
+            return download;
+        }).then(function(item) {
+            // after that new download completes, get the item's name.
+            return item.name;
+        });
+  });
+Promise.all(namePromises).then(function(names) {
+    // use all names here.
+});
+
+
+7.
+
+function readTwoFiles(file1, file2, callback) {
+    async.parallel([
+        fs.readFile.bind(fs, file1),
+        fs.readFile.bind(fs, file2),
+    ], callback);
+}
+readTwoFiles(file1, file2, function(err, files) {
+    console.log(files[0], files[1]);
+})
+
+function readTwoFiles(file1, file2) {
+    return Bluebird.all([fs.readFileAsync(file1), 
+        fs.readFileAsync(file2)]);
+}
+readTwoFiles(file1, file2).then(function(files) {
+    console.log(files[0], files[1]);
+})
+
+
+################################
+async.map(ids, function(id, callback) {
+    getFromStorage(id, function (err, res) {
+        if (err) return callback(err);
+        callback(null, res.name);
+    })
+}, function(err, results) {
+    // results is an array of names
+});
+
+Promise.all(ids.map(function(id) { 
+    return getItem(id).then(function(result) { 
+        return result.name;
+    });
+})).then(function(results) {
+    // results is an array of names
+})
+
+
+ASYNCRONIZE
+
+1.
+First, we'll look at an example that will run multiple asynchronous operations in parallel, and then respond to them immediately as each one finishes, regardless of the order in which they finish. The getValues function is the same one from the previous example. The asyncOperation function will also be reused in the upcoming examples.
+
+function asyncOperation(value) {
+    return Promise.resolve(value + 1);
+}
+ 
+function foo() {
+    return getValues().then(function(values) {
+        var operations = values.map(function(value) {
+            return asyncOperation(value).then(function(newValue) {
+                console.log(newValue);
+                return newValue;
+            });
+        });
+  
+        return Promise.all(operations);
+    }).catch(function(err) {
+        console.log('We had an ', err);
+    });
+}
+
+2. limited concurrency.
+function async(arg, callback) {
+  console.log('do something with \''+arg+'\', return 1 sec later');
+  setTimeout(function() { callback(arg * 2); }, 1000);
+}
+function final() { console.log('Done', results); }
+
+var items = [ 1, 2, 3, 4, 5, 6 ];
+var results = [];
+var running = 0;
+var limit = 2;
+
+function launcher() {
+  while(running < limit && items.length > 0) {
+    var item = items.shift();
+    async(item, function(result) {
+      results.push(result);
+      running--;
+      if(items.length > 0) {
+        launcher();
+      } else if(running == 0) {
+        final();
+      }
+    });
+    running++;
+  }
+}
+
+launcher();
+
+################################
+
+async.mapLimit(ids, 3, function(id, callback) {
+    getFromStorage(id, function (err, res) {
+        if (err) return callback(err);
+        callback(null, res.name);
+    })
+}, function(err, results) {
+    // results is an array of names
+});
+
+var queued = [], parallel = 3;
+var namePromises = ids.map(function(id) {
+    // How many items must download before fetching the next?
+    // The queued, minus those running in parallel, plus one of 
+    // the parallel slots.
+    var mustComplete = Math.max(0, queued.length - parallel + 1);
+    // when enough items are complete, queue another request for an item    
+    var download = Promise.some(queued, mustComplete)
+        .then(function() { return getItem(id); });
+    queued.push(download);
+    return download.then(function(item) {
+        // after that new download completes, get the item's name.    
+        return item.name;
+    });
+
+  });
+Promise.all(namePromises).then(function(names) {
+    // use all names here.
+});
+
+
+SEQUENTIAL ASYNCHRONOUS
+
+1. 
+ifunction foo() {
+    return getValues().then(function(values) {
+        return values.reduce(function(previousOperation, value) {
+            return previousOperation.then(function(newValues) {
+                return asyncOperation(value).then(function(newValue) {
+                    console.log(newValue);
+                    newValues.push(newValue);
+                    return newValues;
+                });
+            });
+        }, Promise.resolve([]));
+    }).catch(function(err) {
+        console.log('We had an ', err);
+    });
+}
+
+
+2. 
+
+// Async task (same in all examples in this chapter)
+function async(arg, callback) {
+  console.log('do something with \''+arg+'\', return 1 sec later');
+  setTimeout(function() { callback(arg * 2); }, 1000);
+}
+// Final task (same in all the examples)
+function final() { console.log('Done', results); }
+
+// A simple async series:
+var items = [ 1, 2, 3, 4, 5, 6 ];
+var results = [];
+function series(item) {
+  if(item) {
+    async( item, function(result) {
+      results.push(result);
+      return series(items.shift());
+    });
+  } else {
+    return final();
+  }
+}
+series(items.shift());
+
+2.1
+function series(callbacks, last) {
+  var results = [];
+  function next() {
+    var callback = callbacks.shift();
+    if(callback) {
+      callback(function() {
+        results.push(Array.prototype.slice.call(arguments));
+        next();
+      });
+    } else {
+      last(results);
+    }
+  }
+  next();
+}
+// Example task
+function async(arg, callback) {
+  var delay = Math.floor(Math.random() * 5 + 1) * 100; // random ms
+  console.log('async with \''+arg+'\', return in '+delay+' ms');
+  setTimeout(function() { callback(arg * 2); }, delay);
+}
+function final(results) { console.log('Done', results); }
+
+series([
+  function(next) { async(1, next); },
+  function(next) { async(2, next); },
+  function(next) { async(3, next); },
+  function(next) { async(4, next); },
+  function(next) { async(5, next); },
+  function(next) { async(6, next); }
+], final)
+
+3.
+
+// start with current being an "empty" already-fulfilled promise
+var current = Promise.fulfilled();
+var namePromises = ids.map(function(id) {
+    // wait for the current download to complete, then get the next
+    // item, then extract its name.
+    current = current
+        .then(function() { return getItem(id); })
+        .then(function(item) { return item.name; });
+    return current;
+});
+Promise.all(namePromises).then(function(names) {
+    // use all names here.
+});
+
+4.
+
+Early returns are a pattern used throughout both sync and async code. Take this hypothetical sync example:
+
+function getItem(key) {
+    var item;
+    // early-return if the item is in the cache.
+    if (item = cache.get(key)) return item;
+    // continue to get the item from the database. cache.put returns the item.
+    item = cache.put(database.get(key));
+
+    return item;
+}
+If we attempt to write this using promises, at first it looks impossible:
+
+function getItem(key) {
+    return cache.get(key).then(function(item) {
+        // early-return if the item is in the cache.
+        if (item) return item;
+        return database.get(item)
+    }).then(function(putOrItem) {
+        // what do we do here to avoid the unnecessary cache.put ?
+    })
+}
+How can we solve this?
+
+We solve it by remembering that the callback variant looks like this:
+
+function getItem(key, callback) {
+    cache.get(key, function(err, res) {
+        // early-return if the item is in the cache.
+        if (res) return callback(null, res);
+        // continue to get the item from the database
+        database.get(key, function(err, res) {
+            if (err) return callback(err);
+            // cache.put calls back with the item
+            cache.put(key, res, callback);
+        })
+    })
+}
+
+function getItem(key) {
+    return cache.get(key).then(function(res) {
+        // early return if the item is in the cache
+        if (res) return res;
+        // continue the chain within the callback.
+        return database.get(key)
+            .then(cache.put);
+    });
+}
+
+
+5.
+############################
+function readLine(file, line, callback) {
+    fs.readFile(file, function process(err, content) {
+        if (err) return callback(err);
+        callback(null, content.toString().split('\n')[line]);
+    }); 
+}
+readLine('myfile.txt', 2, function(err, line) {
+    // handle error or use line
+});
+
+
+function readLine(file, line) {
+    return fs.readFileAsync(file).then(function(res) {
+        return res.toString().split('\n')[line];
+    });
+}
+readLine(file, line).done(function(line) {
+    // use line
+}, function(err) {
+    // handle error
+});
+
+############################
+
+function getUserFriends(id, callback) {
+    User.findOne({id: id}, function(err, user) {
+        if (err) return callback(err);
+        User.find({id: {$in: user.friends}}, callback);
+    });
+}
+
+function getUserFriends(id) {
+    return User.findOne({id: id}).then(function(user) {
+        return User.find({id: {$in: user.friends}});
+    });
+}
+
+############################
+
+var first = files[0], other = files[1];
+var firstLines = first.split('\n').length,
+    otherLines = other.split('\n').length;
+
+diff(first, other, function(err, diffFirstOther) {
+    var diffLines = diffFirstOther.split('\n');
+    var result = {
+        first: firstLines, 
+        second: secondLines, 
+        diff: diffLines
+    };
+});
+
+var first = files[0], other = files[1];
+var pDiffFirstOther = diff(first, other);
+
+var firstLines = first.split('\n').length,
+    otherLines = other.split('\n').length;
+
+var pDiffLines = pDiffFirstOther.then(function(diff) { 
+    return diff.split('\n'); 
+});
+
+var pResult = pDiffLines.then(function(diffLines) {
+    return {
+        first: firstLines, 
+        second: secondLines, 
+        diff: diffLines
+    };
+});
+
+############################
+
+
+function readConfig(file, callback) {
+    fs.readFile(file, function(err, content) {
+        if (err) return callback(err);
+        var parsed;
+        try { parsed = JSON.parse(content.toString()) }
+        catch (error) { return callback(err); }
+        callback(null, parsed);
+    })
+}
+
+readConfig(file).done(function(config) {
+    // Got configuration.
+}, function(error) {
+    // JSON parse error or file read error.
+})
+
+
+Example: read a file, transform it using a transformation service that doesn't support streams, then write the transformed file somewhere else.
+
+function transformFile(inPath, outPath, callback) {
+    async.waterfall([
+        fs.readFile.bind(fs, inPath, 'utf8'),    
+        service.transform,
+        fs.writeFile.bind(fs, outPath)
+    ], callback);
+}
+transformFile(input, output, function(err) {
+    if (!err) console.log("All ok!");
+})
+
+function transformFile(input, output) {
+    return fs.readFileAsync(input, 'utf8')
+        .then(service.transformAsync)
+        .then(fs.writeFileAsync.bind(fs, output)); 
+}
+transformFile(fileIn, fileOut).done(function() {
+    console.log("All ok!");
+}, function(err) { 
+    console.error(err);
+});
+
+function transformFile(inPath, outPath, done) {
+    async.waterfall([
+        function(callback) { 
+            fs.readFile(inPath, 'utf8', callback); },    
+        function(data, callback) { 
+            service.transform(data, callback); },
+        function(transformed, callback) { 
+            fs.writeFile(outPath, transformed, callback); }
+    ], done);
+}
+
+function transformFile(input, output) {
+    return fs.readFileAsync(input, 'utf8')
+        .then(function(data) {
+            return service.transformAsync(data);
+        })
+        .then(function(transformed) {
+            return fs.writeFileAsync(output, transformed)
+        }); 
+}
+
+
+########################
+
+
+async.waterfall([
+    files.getLastTwoVersions.bind(files),
+    function(items, callback) {
+        async.parallel([
+            versions.get.bind(versions, item.last),
+            versions.get.bind(versions, item.previous)],
+            callback)
+    }, 
+    function(v, callback) {
+        diffService.compare(v[0].blob, v[1].blob, callback)
+    }], 
+    function(err, diff) {
+        // voila, diff is ready. Do something with it.
+    })
+
+
+files.getLastTwoVersions(filename)
+    .then(function(items) {
+        return [versions.get(items.last), 
+                versions.get(items.previous)];
+    })
+    .spread(function(v1, v2) { 
+        return diffService.compare(v1.blob, v2.blob)
+    })
+    .then(function(diff) {
+        // voila, diff is ready. Do something with it.
+    });
+
+
+###########################
+async.mapSeries(ids, function(id, callback) {
+    getFromStorage(id, function (err, res) {
+        if (err) return callback(err);
+        callback(null, res.name);
+    })
+}, function(err, results) {
+    // results is an array of names
+});
+
+// start with current being an "empty" already-fulfilled promise
+var current = Promise.resolve();
+
+Promise.all(ids.map(function(id) { 
+    current = current.then(function() {
+        return getItem(id) // returns promise
+    }).then(function(result) { 
+        return result.name;
+    });
+    return current;
+})).then(function(results) {
+    // results is an array of names
+})
+
+
+http://code.tutsplus.com/tutorials/a-primer-on-es7-async-functions--cms-22367
+http://www.html5rocks.com/en/tutorials/es6/promises/
+http://stackoverflow.com/questions/28915677/what-is-the-promise-disposer-pattern
+https://strongloop.com/strongblog/node-js-callback-hell-promises-generators/
+http://pag.forbeslindesay.co.uk/#/27 //interesting comparsion between generator and promise
+
+Mocha
+http://thanpol.as/nodejs/Mocha-and-Promises-No-Problem/ 
+http://stackoverflow.com/questions/20931737/chai-as-promised-is-eating-assertion-errors?rq=1
+http://stackoverflow.com/questions/26571328/how-to-i-properly-test-promises-with-mocha-and-chai

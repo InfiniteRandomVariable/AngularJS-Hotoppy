@@ -1,0 +1,21 @@
+// logger.js
+var bunyan = require('bunyan');
+// bunyan.createLogger(options)
+
+var name, level, src, streams;
+
+var logger = function(params){
+    mame = params.name;
+    level = params.level;
+    src = params.src;
+    streams = param.streams;
+
+    logger.info = function(msg){
+        console.log("writing to " + streams.path);
+    };
+    // logger.debug = ...
+
+    return logger;
+};
+
+module.exports = logger;

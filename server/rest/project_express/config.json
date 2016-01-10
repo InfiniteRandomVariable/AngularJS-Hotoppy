@@ -1,0 +1,8 @@
+{
+	"secret": "Mr.007-ShOW-me-some-love!",
+	"dbPathLocal": "mongodb://localhost:27017/rest-api",
+	"dbPathExternal": "mongodb://sandbox1:mglToday_a51@ds031611.mongolab.com:31611/sandbox_aws_vg",
+	"dbExternal": true,
+	"port": 8000,
+	"dataBackend" : "dynamodb"
+}

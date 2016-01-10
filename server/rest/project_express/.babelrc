@@ -1,0 +1,9 @@
+{
+  "plugins": [],
+  "ignore": [],
+  "env": {
+    "production": {
+      "plugins": []
+    }
+  }
+}
