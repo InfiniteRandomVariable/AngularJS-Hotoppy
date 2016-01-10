@@ -135,7 +135,7 @@ app.use(function(err, req, res, next) {
 	
 // });
 
-var router = app.Router();
+var router = express.Router();
 
 var routes = require('./routes/routes')(router);
 //var routes = require('./routes/routes')(app, model);
