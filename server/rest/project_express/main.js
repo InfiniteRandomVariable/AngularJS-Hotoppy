@@ -54,6 +54,8 @@ app.all('/*', function(req, res, next) {
 	}
 });
 
+
+
 // error handlers
 
 // development error handler
@@ -137,7 +139,7 @@ app.use(function(err, req, res, next) {
 
 var router = express.Router();
 
-var routes = require('./routes/routes')(router);
+var routes = require('./routes/routes')(router, null, app);
 //var routes = require('./routes/routes')(app, model);
 
 module.exports = app;

@@ -3,17 +3,17 @@ var article = require('../controllers/articleController');
 var restController = require('../controllers/restController');
 //var validating = require('../middleware/validating');
 
-module.exports = function(app, model) {
+module.exports = function(router, model, coreApi) {
 
 	
-	app.get('/', function(req, res, next) {
+	router.get('/', function(req, res, next) {
 		return res.send("WELCOME TO REST API");
 	});
 
   
 
 	 //Client-to-NODE
-	 app.get('/getArticles',  function(req, res, next) { 
+	 router.get('/getArticles',  function(req, res, next) { 
 
      return restController.getArticles(req, res, next, model)
   }); 
@@ -28,26 +28,26 @@ module.exports = function(app, model) {
 	 //like, comment
 
 	 //keep this method private
-	 app.put('/createArticle', function(req, res, next) { 
+	 router.put('/createArticle', function(req, res, next) { 
 
       return restController.createArticle(req, res, next, model)
     }); //PYTHON-to-Node
 
 	 //app.put('/createArticle', restController.moreArticles);
-	 app.put('/createLike', function(req, res, next) { 
+	 router.put('/createLike', function(req, res, next) { 
       return restController.createLike(req, res, next, model)
     }
 ); //Client-to-NODE
 
-	 app.put('/createUser',function(req, res, next) { 
+	 router.put('/createUser',function(req, res, next) { 
 
       return restController.createUser(req, res, next, model)
     }); //Client-to-NODE
-	 app.put('/loginUser', function(req, res, next) { 
+	 router.put('/loginUser', function(req, res, next) { 
 
       return restController.loginUser(req, res, next, model)
     }); //Client-to-NODE
-   app.put('/get', function(req, res, next) { 
+   router.put('/get', function(req, res, next) { 
 
       return restController.findPublisherProcedure(req, res, next, model)
   });  //Client-to-NODE
@@ -57,7 +57,7 @@ module.exports = function(app, model) {
 
 
 
-   app.put('/updateArticleLikeProcedure', function(req, res, next) { 
+   router.put('/updateArticleLikeProcedure', function(req, res, next) { 
 
       return restController.updateArticleLikeProcedure(req, res, next, model)
     }); //Client-to-NODE
@@ -65,7 +65,7 @@ module.exports = function(app, model) {
 	 // app.post('/createLike', article.createArticle);
 	 // app.post('/createLike', article.createArticle);
 
-
+   coreApi.use('', router);
 };
 
 
